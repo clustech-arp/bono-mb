@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Bono Festival MB</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh}
+
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-card{background:#fff;border-radius:20px;padding:40px 32px;width:100%;max-width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.login-card h1{font-size:24px;font-weight:800;color:#1a1a1a;margin-bottom:6px}
+.login-card p{color:#888;font-size:14px;margin-bottom:28px}
+.login-card input{width:100%;padding:14px 16px;border:2px solid #e0e0e0;border-radius:12px;font-size:16px;margin-bottom:14px;outline:none;transition:border .2s}
+.login-card input:focus{border-color:#1a73e8}
+.login-card button{width:100%;padding:14px;background:#1a73e8;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer}
+#loginErr{color:#c62828;font-size:13px;margin-top:10px;min-height:18px}
+
+#mainScreen{display:none;padding:20px}
+.topbar{background:#fff;border-radius:14px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.topbar h2{font-size:18px;font-weight:800;color:#1a1a1a}
+.topbar span{font-size:13px;color:#888}
+.btn-logout{background:#f44336;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer}
+
+.tabs{display:flex;gap:8px;margin-bottom:20px}
+.tab{flex:1;padding:12px;background:#fff;border:2px solid #e0e0e0;border-radius:12px;font-size:14px;font-weight:700;color:#888;cursor:pointer;transition:all .2s;text-align:center}
+.tab.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
+
+.panel{display:none}
+.panel.active{display:block}
+
+.card{background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.card h3{font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:16px}
+
+.stats-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.stat-box{flex:1;min-width:120px;background:#fff;border-radius:12px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.stat-box .num{font-size:32px;font-weight:900;color:#1a73e8}
+.stat-box .lbl{font-size:12px;color:#888;margin-top:4px}
+
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{background:#f8f9fa;padding:10px 12px;text-align:left;font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px}
+td{padding:10px 12px;border-bottom:1px solid #f0f0f0;color:#333}
+tr:last-child td{border-bottom:none}
+.nums-cell{font-weight:700;color:#1a73e8}
+
+.seller-card{background:#f8f9fa;border-radius:12px;padding:16px;margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.seller-info{flex:1;min-width:160px}
+.seller-name{font-weight:700;font-size:15px;color:#1a1a1a}
+.seller-meta{font-size:12px;color:#888;margin-top:2px}
+.seller-meta span{margin-right:10px}
+.seller-lote{font-size:13px;color:#1a73e8;font-weight:700;margin-top:4px}
+.seller-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn-sm{padding:7px 14px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-toggle-on{background:#fff3e0;color:#e65100}
+.btn-toggle-off{background:#e8f5e9;color:#2e7d32}
+.btn-del{background:#ffebee;color:#c62828}
+.btn-lote{background:#e3f2fd;color:#1565c0}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:#555}
+.form-grid label span{font-weight:400;color:#888;font-size:11px}
+.form-grid input{padding:10px 12px;border:2px solid #e0e0e0;border-radius:10px;font-size:15px;outline:none;transition:border .2s}
+.form-grid input:focus{border-color:#1a73e8}
+.btn-add{width:100%;padding:13px;background:#2e7d32;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
+
+.btn-export{padding:11px 20px;background:#0f9d58;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+
+.badge-activo{background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+.badge-inactivo{background:#ffebee;color:#c62828;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-box{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:340px}
+.modal-box h3{font-size:16px;font-weight:800;margin-bottom:6px}
+.modal-box p{font-size:13px;color:#888;margin-bottom:16px}
+.modal-row{display:flex;gap:10px;margin-bottom:14px}
+.modal-row label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:#555}
+.modal-row input{padding:10px 12px;border:2px solid #e0e0e0;border-radius:10px;font-size:15px;outline:none}
+.modal-row input:focus{border-color:#1a73e8}
+.modal-btns{display:flex;gap:8px}
+.modal-btns button{flex:1;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.btn-cancel{background:#f0f0f0;color:#555}
+.btn-save{background:#1a73e8;color:#fff}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;display:none;z-index:999}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <img src="logo.png" style="width:60px;border-radius:8px;margin-bottom:16px" alt="ESCMB" onerror="this.style.display='none'">
+    <h1>Admin Panel</h1>
+    <p>Bono Festival MB</p>
+    <input type="password" id="adminPin" placeholder="PIN de administrador" maxlength="20" autocomplete="current-password">
+    <button onclick="doLogin()">Ingresar</button>
+    <div id="loginErr"></div>
+  </div>
+</div>
+
+<div id="mainScreen">
+  <div class="topbar">
+    <div>
+      <h2><img src="logo.png" style="width:24px;height:24px;vertical-align:middle;border-radius:3px;margin-right:6px" alt="">Admin — Bono Festival MB</h2>
+      <span id="statsTopbar"></span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-logout" style="background:#0f9d58" onclick="loadData()">🔄 Actualizar</button>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('ventas')">📋 Ventas</div>
+    <div class="tab" onclick="switchTab('vendedores')">👥 Vendedores</div>
+  </div>
+
+  <div id="panel-ventas" class="panel active">
+    <div class="stats-row" id="statsRow"></div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <h3>Ventas registradas</h3>
+        <button class="btn-export" onclick="exportCSV()">⬇️ Exportar CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Número</th><th>Comprador</th><th>Teléfono</th><th>Vendedor</th><th>Fecha</th></tr>
+          </thead>
+          <tbody id="salesBody"><tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-vendedores" class="panel">
+    <div class="card">
+      <h3>➕ Agregar Vendedor</h3>
+      <div class="form-grid">
+        <label>Nombre<input type="text" id="newNombre" placeholder="Ej: MARÍA"></label>
+        <label>DNI (últimos 4)<input type="text" id="newDni" placeholder="1234" maxlength="4"></label>
+        <label>PIN (4 dígitos)<input type="text" id="newPin" placeholder="5678" maxlength="4"></label>
+      </div>
+      <button class="btn-add" onclick="addSeller()">Agregar Vendedor</button>
+    </div>
+    <div class="card">
+      <h3>Vendedores</h3>
+      <div id="sellersList"><p style="color:#aaa;text-align:center">Cargando...</p></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- MODAL AGREGAR LOTE -->
+<div id="modalLote" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3 id="modalTitle">Agregar Lote</h3>
+    <p>Se sumará a los lotes existentes del vendedor</p>
+    <div class="modal-row">
+      <label>Desde<input type="number" id="modalDesde" min="0" max="1999"></label>
+      <label>Hasta<input type="number" id="modalHasta" min="0" max="1999"></label>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeLoteModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveLote()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCAxCy8vAijdXs-euawf2lh83nVvghayqU",
+    authDomain: "bono-mb-v2.firebaseapp.com",
+    databaseURL: "https://bono-mb-v2-default-rtdb.firebaseio.com",
+    projectId: "bono-mb-v2",
+    storageBucket: "bono-mb-v2.firebasestorage.app",
+    messagingSenderId: "426895052978",
+    appId: "1:426895052978:web:433f459af5509c1c8db9ab"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  let salesData = [];
+  let modalKey = null;
+
+  document.getElementById('adminPin').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+  function doLogin() {
+    const p = document.getElementById('adminPin').value.trim();
+    db.ref('adminPin').once('value').then(snap => {
+      if (p === String(snap.val() || 'admin1234')) {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainScreen').style.display = 'block';
+        loadData();
+      } else {
+        document.getElementById('loginErr').textContent = 'PIN incorrecto';
+      }
+    });
+  }
+
+  function doLogout() { location.reload(); }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['ventas','vendedores'][i]===name));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-'+name).classList.add('active');
+  }
+
+  function loadData() { loadSales(); loadSellers(); }
+
+  // ── VENTAS ──────────────────────────────────────────────
+  function loadSales() {
+    db.ref('compras').on('value', snap => {
+      salesData = [];
+      if (snap.exists()) snap.forEach(c => salesData.push({ codigo: c.key, ...c.val() }));
+      renderSales();
+    });
+  }
+
+  function renderSales() {
+    const tbody = document.getElementById('salesBody');
+    const totalNums = salesData.reduce((acc, s) => {
+      return acc + (Array.isArray(s.numeros) ? s.numeros.length : 1);
+    }, 0);
+
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat-box"><div class="num">${totalNums}</div><div class="lbl">Números vendidos</div></div>
+      <div class="stat-box"><div class="num">${2000 - totalNums}</div><div class="lbl">Disponibles</div></div>
+      <div class="stat-box"><div class="num">${salesData.length}</div><div class="lbl">Transacciones</div></div>
+    `;
+    document.getElementById('statsTopbar').textContent = `${totalNums} / 2000 vendidos`;
+
+    if (!salesData.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px">Sin ventas</td></tr>';
+      return;
+    }
+    let row = 0;
+    const rows = [];
+    salesData.forEach(s => {
+      const nums = Array.isArray(s.numeros) ? s.numeros : [s.numeros];
+      nums.forEach(n => {
+        row++;
+        rows.push(`<tr>
+          <td>${row}</td>
+          <td class="nums-cell">${String(n).padStart ? String(n).padStart(4,'0') : n}</td>
+          <td>${esc(s.nombre)}</td>
+          <td>${esc(s.telefono||'—')}</td>
+          <td>${esc(s.vendedor)}</td>
+          <td>${esc(s.fecha)}</td>
+        </tr>`);
+      });
+    });
+    tbody.innerHTML = rows.join('');
+  }
+
+  function exportCSV() {
+    if (!salesData.length) { toast('Sin datos'); return; }
+    const rows = [['Numero','Comprador','Telefono','Vendedor','Fecha']];
+    salesData.forEach(s => {
+      const nums = Array.isArray(s.numeros) ? s.numeros : [s.numeros];
+      nums.forEach(n => rows.push([String(n).padStart(4,'0'), s.nombre, s.telefono||'', s.vendedor, s.fecha]));
+    });
+    const csv = '﻿' + rows.map(r => r.map(c => '"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'ventas_bono_mb_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+  }
+
+  // ── VENDEDORES ──────────────────────────────────────────
+  function getLotes(d) {
+    if (d.lotes) return Object.values(d.lotes);
+    if (d.loteDesde !== undefined && d.loteHasta !== undefined)
+      return [{ desde: d.loteDesde, hasta: d.loteHasta }];
+    return [];
+  }
+
+  function getAllLotesExcept(snap, excludeKey) {
+    const all = [];
+    snap.forEach(child => {
+      if (child.key === excludeKey) return;
+      getLotes(child.val()).forEach(l => all.push({ ...l, nombre: child.val().nombre }));
+    });
+    return all;
+  }
+
+  function loadSellers() {
+    db.ref('vendedores').on('value', snap => {
+      const list = document.getElementById('sellersList');
+      if (!snap.exists()) { list.innerHTML = '<p style="color:#aaa;text-align:center">Sin vendedores</p>'; return; }
+
+      let html = '', maxHasta = -1;
+      snap.forEach(child => {
+        const d = child.val(), key = child.key;
+        const activo = d.activo !== false;
+        const lotes = getLotes(d);
+        lotes.forEach(l => { if (l.hasta > maxHasta) maxHasta = l.hasta; });
+        const lotesStr = lotes.length
+          ? lotes.map(l => `📦 ${l.desde}→${l.hasta}`).join('&nbsp;&nbsp;')
+          : '(sin lote)';
+
+        html += `
+          <div class="seller-card">
+            <div class="seller-info">
+              <div class="seller-name">${esc(d.nombre)} <span class="${activo?'badge-activo':'badge-inactivo'}">${activo?'ACTIVO':'INACTIVO'}</span></div>
+              <div class="seller-meta">
+                <span>DNI: ${esc(d.dni||'—')}</span>
+                <span>PIN: ${esc(d.pin||key.substring(1))}</span>
+              </div>
+              <div class="seller-lote">${lotesStr}</div>
+            </div>
+            <div class="seller-actions">
+              <button class="btn-sm btn-lote" onclick="openLoteModal('${key}','${esc(d.nombre)}')">+ Lote</button>
+              <button class="btn-sm ${activo?'btn-toggle-on':'btn-toggle-off'}" onclick="toggleSeller('${key}',${activo})">${activo?'Desactivar':'Activar'}</button>
+              <button class="btn-sm btn-del" onclick="deleteSeller('${key}','${esc(d.nombre)}')">Eliminar</button>
+            </div>
+          </div>`;
+      });
+      list.innerHTML = html;
+
+      // Auto-proponer próximo lote solo si los campos están vacíos
+      if (maxHasta >= 0 && !document.getElementById('newDesde').value) {
+        const nextDesde = maxHasta + 1;
+        document.getElementById('newDesde').value = nextDesde;
+        document.getElementById('newHasta').value = Math.min(nextDesde + 29, 1999);
+      }
+    });
+  }
+
+  function addSeller() {
+    const nombre = document.getElementById('newNombre').value.trim().toUpperCase();
+    const dni    = document.getElementById('newDni').value.trim();
+    const pin    = document.getElementById('newPin').value.trim();
+
+    if (!nombre || !dni || !pin) { toast('Completá nombre, DNI y PIN'); return; }
+    if (!/^\d{4}$/.test(dni))   { toast('DNI debe ser 4 dígitos'); return; }
+    if (!/^\d{4}$/.test(pin))   { toast('PIN debe ser 4 dígitos'); return; }
+
+    db.ref('vendedores').once('value').then(snap => {
+      let dniDup = null;
+      if (snap.exists()) {
+        snap.forEach(child => {
+          const d = child.val();
+          if (String(d.dni) === dni && d.nombre.toUpperCase() === nombre) dniDup = d.nombre;
+        });
+      }
+      if (dniDup) { toast('Ya existe un vendedor con ese DNI y nombre'); return; }
+
+      const key = 's' + dni + pin;
+      db.ref('vendedores/' + key).set({ nombre, dni, pin, activo: true, lotes: [] })
+        .then(() => {
+          toast('Vendedor agregado ✓ — Asigná el lote con + Lote');
+          ['newNombre','newDni','newPin'].forEach(id => document.getElementById(id).value = '');
+        }).catch(e => toast('Error: ' + e.message));
+    });
+  }
+
+  function openLoteModal(key, nombre) {
+    modalKey = key;
+    document.getElementById('modalTitle').textContent = `Agregar Lote — ${nombre}`;
+    db.ref('vendedores').once('value').then(snap => {
+      let maxH = -1;
+      snap.forEach(child => getLotes(child.val()).forEach(l => { if (l.hasta > maxH) maxH = l.hasta; }));
+      const nd = maxH >= 0 ? maxH + 1 : 0;
+      document.getElementById('modalDesde').value = nd;
+      document.getElementById('modalHasta').value = Math.min(nd + 29, 1999);
+    });
+    document.getElementById('modalLote').style.display = 'flex';
+  }
+
+  function closeLoteModal() {
+    document.getElementById('modalLote').style.display = 'none';
+    modalKey = null;
+  }
+
+  function saveLote() {
+    const desde = parseInt(document.getElementById('modalDesde').value);
+    const hasta  = parseInt(document.getElementById('modalHasta').value);
+    if (isNaN(desde) || isNaN(hasta) || desde > hasta) { toast('Lote inválido'); return; }
+    if (hasta > 1999) { toast('No puede superar 1999'); return; }
+
+    db.ref('vendedores').once('value').then(snap => {
+      const otrosLotes = getAllLotesExcept(snap, modalKey);
+      const conf = otrosLotes.find(l => desde <= l.hasta && hasta >= l.desde);
+      if (conf) { toast(`Superpuesto con ${conf.nombre} (${conf.desde}→${conf.hasta})`); return; }
+
+      const miData = snap.child(modalKey).val();
+      const misLotes = getLotes(miData);
+      const selfConf = misLotes.find(l => desde <= l.hasta && hasta >= l.desde);
+      if (selfConf) { toast(`Superpuesto con lote propio ${selfConf.desde}→${selfConf.hasta}`); return; }
+
+      const nuevosLotes = [...misLotes, { desde, hasta }];
+      const updates = {
+        ['vendedores/' + modalKey + '/lotes']: nuevosLotes,
+        ['vendedores/' + modalKey + '/loteDesde']: null,  // eliminar campo viejo
+        ['vendedores/' + modalKey + '/loteHasta']: null   // eliminar campo viejo
+      };
+      db.ref().update(updates)
+        .then(() => { toast('Lote agregado ✓'); closeLoteModal(); })
+        .catch(e => toast('Error: ' + e.message));
+    });
+  }
+
+  function toggleSeller(key, currentState) {
+    db.ref('vendedores/' + key + '/activo').set(!currentState).then(() => toast('Estado actualizado'));
+  }
+
+  function deleteSeller(key, nombre) {
+    if (!confirm(`¿Eliminar a ${nombre}?`)) return;
+    db.ref('vendedores/' + key).remove().then(() => toast('Eliminado'));
+  }
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.style.display = 'block';
+    clearTimeout(t._t);
+    t._t = setTimeout(() => t.style.display = 'none', 2500);
+  }
+</script>
+</body>
+</html>
