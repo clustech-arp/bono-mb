@@ -130,6 +130,7 @@
     </div>
     <div class="header-right">
       <button class="btn-hdr" onclick="suggestNumber()">🎲 Sugerir</button>
+      <button class="btn-hdr" id="btnLastQR" onclick="reopenLastQR()" style="display:none">🎟️ Último recibo</button>
       <button class="btn-hdr" onclick="doLogout()">Salir</button>
     </div>
   </header>
@@ -283,6 +284,7 @@
       session.lotes.map(l => String(l.desde).padStart(4,'0') + '–' + String(l.hasta).padStart(4,'0')).join(' | ');
     initGrid();
     listenSales();
+    checkLastSale();
   }
 
   // ── Grilla ──────────────────────────────────────────────
@@ -444,6 +446,9 @@
 
     const verifyUrl = window.location.origin + '/verify.html?code=' + codigo;
     lastSale = { numeros: vendidosOk, nombre, vendedor, fecha, codigo, verifyUrl };
+    // Guardar último recibo para poder recuperarlo
+    localStorage.setItem('mbLastSale', JSON.stringify(lastSale));
+    document.getElementById('btnLastQR').style.display = 'block';
 
     closeSale();
     clearSelection();
@@ -451,6 +456,19 @@
     if (yaVendidos.length) showToast(`⚠️ ${yaVendidos.length} número(s) ya estaban vendidos`);
 
     showQR(lastSale);
+  }
+
+  function reopenLastQR() {
+    const saved = localStorage.getItem('mbLastSale');
+    if (!saved) return;
+    try { showQR(JSON.parse(saved)); } catch(e) {}
+  }
+
+  // Al iniciar app, mostrar el botón si hay un último recibo guardado
+  function checkLastSale() {
+    if (localStorage.getItem('mbLastSale')) {
+      document.getElementById('btnLastQR').style.display = 'block';
+    }
   }
 
   // ── QR ──────────────────────────────────────────────────

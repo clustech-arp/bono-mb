@@ -108,7 +108,10 @@ tr:last-child td{border-bottom:none}
       <h2>🎟️ Admin — Bono Festival MB</h2>
       <span id="statsTopbar"></span>
     </div>
-    <button class="btn-logout" onclick="doLogout()">Salir</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-logout" style="background:#0f9d58" onclick="loadData()">🔄 Actualizar</button>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
+    </div>
   </div>
 
   <div class="tabs">
@@ -141,9 +144,6 @@ tr:last-child td{border-bottom:none}
         <label>Nombre<input type="text" id="newNombre" placeholder="Ej: MARÍA"></label>
         <label>DNI (últimos 4)<input type="text" id="newDni" placeholder="1234" maxlength="4"></label>
         <label>PIN (4 dígitos)<input type="text" id="newPin" placeholder="5678" maxlength="4"></label>
-        <label>Lote desde<span>Número inicial</span><input type="number" id="newDesde" min="0" max="1999"></label>
-        <label>Lote hasta<span>Número final</span><input type="number" id="newHasta" min="0" max="1999"></label>
-        <div></div>
       </div>
       <button class="btn-add" onclick="addSeller()">Agregar Vendedor</button>
     </div>
@@ -336,33 +336,25 @@ tr:last-child td{border-bottom:none}
     const nombre = document.getElementById('newNombre').value.trim().toUpperCase();
     const dni    = document.getElementById('newDni').value.trim();
     const pin    = document.getElementById('newPin').value.trim();
-    const desde  = parseInt(document.getElementById('newDesde').value);
-    const hasta  = parseInt(document.getElementById('newHasta').value);
 
     if (!nombre || !dni || !pin) { toast('Completá nombre, DNI y PIN'); return; }
     if (!/^\d{4}$/.test(dni))   { toast('DNI debe ser 4 dígitos'); return; }
     if (!/^\d{4}$/.test(pin))   { toast('PIN debe ser 4 dígitos'); return; }
-    if (isNaN(desde) || isNaN(hasta) || desde > hasta) { toast('Lote inválido'); return; }
-    if (hasta > 1999) { toast('El lote no puede superar 1999'); return; }
 
     db.ref('vendedores').once('value').then(snap => {
-      let dniDup = null, conflicto = null;
+      let dniDup = null;
       if (snap.exists()) {
         snap.forEach(child => {
           const d = child.val();
           if (String(d.dni) === dni && d.nombre.toUpperCase() === nombre) dniDup = d.nombre;
-          getLotes(d).forEach(l => {
-            if (desde <= l.hasta && hasta >= l.desde) conflicto = `${d.nombre} (${l.desde}→${l.hasta})`;
-          });
         });
       }
       if (dniDup) { toast('Ya existe un vendedor con ese DNI y nombre'); return; }
-      if (conflicto) { toast(`Lote superpuesto con ${conflicto}`); return; }
 
       const key = 's' + dni + pin;
-      db.ref('vendedores/' + key).set({ nombre, dni, pin, activo: true, lotes: [{ desde, hasta }] })
+      db.ref('vendedores/' + key).set({ nombre, dni, pin, activo: true, lotes: [] })
         .then(() => {
-          toast('Vendedor agregado ✓');
+          toast('Vendedor agregado ✓ — Asigná el lote con + Lote');
           ['newNombre','newDni','newPin'].forEach(id => document.getElementById(id).value = '');
         }).catch(e => toast('Error: ' + e.message));
     });
@@ -403,7 +395,12 @@ tr:last-child td{border-bottom:none}
       if (selfConf) { toast(`Superpuesto con lote propio ${selfConf.desde}→${selfConf.hasta}`); return; }
 
       const nuevosLotes = [...misLotes, { desde, hasta }];
-      db.ref('vendedores/' + modalKey + '/lotes').set(nuevosLotes)
+      const updates = {
+        ['vendedores/' + modalKey + '/lotes']: nuevosLotes,
+        ['vendedores/' + modalKey + '/loteDesde']: null,  // eliminar campo viejo
+        ['vendedores/' + modalKey + '/loteHasta']: null   // eliminar campo viejo
+      };
+      db.ref().update(updates)
         .then(() => { toast('Lote agregado ✓'); closeLoteModal(); })
         .catch(e => toast('Error: ' + e.message));
     });
