@@ -176,7 +176,8 @@
 <!-- MODAL QR -->
 <div class="modal-overlay" id="qrModal">
   <div class="modal-sheet">
-    <h2><img src="logo.png" style="width:28px;height:28px;vertical-align:middle;border-radius:4px;margin-right:8px" alt="">Venta registrada</h2>
+    <div style="text-align:center;margin-bottom:8px"><img src="logo.png" style="width:72px;height:72px;object-fit:contain;border-radius:10px" alt=""></div>
+    <h2>Venta registrada</h2>
     <div class="qr-nums" id="qrNums"></div>
     <div id="qrBox"></div>
     <div class="qr-url" id="qrUrlTxt"></div>
@@ -190,6 +191,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.1 — 26/05/26</div>
 
 <script>
   const firebaseConfig = {
@@ -444,7 +446,8 @@
     await db.ref('compras/' + codigo).set(compra);
     await db.ref('codigos/' + codigo).set(vendidosOk);
 
-    const verifyUrl = window.location.origin + '/verify.html?code=' + codigo;
+    const base = window.location.href.replace(/\/[^/]*(\?.*)?$/, '/');
+    const verifyUrl = base + 'verify.html?code=' + codigo;
     lastSale = { numeros: vendidosOk, nombre, vendedor, fecha, codigo, verifyUrl };
     // Guardar último recibo para poder recuperarlo
     localStorage.setItem('mbLastSale', JSON.stringify(lastSale));
