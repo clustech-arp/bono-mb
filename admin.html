@@ -88,6 +88,20 @@ tr:last-child td{border-bottom:none}
 
 /* TOAST */
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;display:none;z-index:999}
+
+/* MODAL LOTE */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-box{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:340px}
+.modal-box h3{font-size:16px;font-weight:800;margin-bottom:16px}
+.modal-row{display:flex;gap:10px;margin-bottom:14px}
+.modal-row label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:#555}
+.modal-row input{padding:10px 12px;border:2px solid #e0e0e0;border-radius:10px;font-size:15px;outline:none}
+.modal-row input:focus{border-color:#1a73e8}
+.modal-btns{display:flex;gap:8px}
+.modal-btns button{flex:1;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.btn-cancel{background:#f0f0f0;color:#555}
+.btn-save{background:#1a73e8;color:#fff}
+.btn-lote{background:#e3f2fd;color:#1565c0}
 </style>
 </head>
 <body>
@@ -170,6 +184,21 @@ tr:last-child td{border-bottom:none}
 
 <div id="toast"></div>
 
+<!-- MODAL EDITAR LOTE -->
+<div id="modalLote" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3 id="modalTitle">Editar Lote</h3>
+    <div class="modal-row">
+      <label>Desde<input type="number" id="modalDesde" min="0" max="1999"></label>
+      <label>Hasta<input type="number" id="modalHasta" min="0" max="1999"></label>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeLoteModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveLote()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyCAxCy8vAijdXs-euawf2lh83nVvghayqU",
@@ -183,7 +212,8 @@ tr:last-child td{border-bottom:none}
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  let salesData = [];  // array of {codigo, ...compra}
+  let salesData = [];
+  let modalKey = null;  // clave del vendedor que se está editando
 
   // LOGIN
   document.getElementById('adminPin').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
@@ -302,13 +332,18 @@ tr:last-child td{border-bottom:none}
     db.ref('vendedores').on('value', snap => {
       const list = document.getElementById('sellersList');
       if (!snap.exists()) { list.innerHTML = '<p style="color:#aaa;text-align:center">Sin vendedores</p>'; return; }
+
       let html = '';
+      let maxHasta = -1;
+
       snap.forEach(child => {
         const d = child.val();
         const key = child.key;
         const activo = d.activo !== false;
         const desde = d.loteDesde !== undefined ? d.loteDesde : '—';
         const hasta = d.loteHasta !== undefined ? d.loteHasta : '—';
+        if (d.loteHasta !== undefined && d.loteHasta > maxHasta) maxHasta = d.loteHasta;
+
         html += `
           <div class="seller-card">
             <div class="seller-info">
@@ -320,6 +355,7 @@ tr:last-child td{border-bottom:none}
               <div class="seller-lote">📦 Lote: ${desde} → ${hasta}</div>
             </div>
             <div class="seller-actions">
+              <button class="btn-sm btn-lote" onclick="openLoteModal('${key}','${esc(d.nombre)}',${d.loteDesde??0},${d.loteHasta??0})">Editar Lote</button>
               <button class="btn-sm ${activo?'btn-toggle-on':'btn-toggle-off'}" onclick="toggleSeller('${key}',${activo})">
                 ${activo?'Desactivar':'Activar'}
               </button>
@@ -328,6 +364,51 @@ tr:last-child td{border-bottom:none}
           </div>`;
       });
       list.innerHTML = html;
+
+      // Proponer próximo lote (bloques de 30)
+      if (maxHasta >= 0) {
+        const nextDesde = maxHasta + 1;
+        const nextHasta = Math.min(nextDesde + 29, 1999);
+        document.getElementById('newDesde').value = nextDesde;
+        document.getElementById('newHasta').value = nextHasta;
+      }
+    });
+  }
+
+  function openLoteModal(key, nombre, desde, hasta) {
+    modalKey = key;
+    document.getElementById('modalTitle').textContent = `Lote — ${nombre}`;
+    document.getElementById('modalDesde').value = desde;
+    document.getElementById('modalHasta').value = hasta;
+    document.getElementById('modalLote').style.display = 'flex';
+  }
+
+  function closeLoteModal() {
+    document.getElementById('modalLote').style.display = 'none';
+    modalKey = null;
+  }
+
+  function saveLote() {
+    const desde = parseInt(document.getElementById('modalDesde').value);
+    const hasta  = parseInt(document.getElementById('modalHasta').value);
+    if (isNaN(desde) || isNaN(hasta) || desde > hasta) { toast('Lote inválido'); return; }
+    if (hasta > 1999) { toast('El lote no puede superar 1999'); return; }
+
+    db.ref('vendedores').once('value').then(snap => {
+      let conflicto = null;
+      snap.forEach(child => {
+        if (child.key === modalKey) return; // excluir al vendedor actual
+        const d = child.val();
+        if (d.loteDesde === undefined || d.loteHasta === undefined) return;
+        if (desde <= d.loteHasta && hasta >= d.loteDesde) {
+          conflicto = `${d.nombre} (${d.loteDesde}→${d.loteHasta})`;
+        }
+      });
+      if (conflicto) { toast(`Lote superpuesto con ${conflicto}`); return; }
+
+      db.ref('vendedores/' + modalKey).update({ loteDesde: desde, loteHasta: hasta })
+        .then(() => { toast('Lote actualizado ✓'); closeLoteModal(); })
+        .catch(e => toast('Error: ' + e.message));
     });
   }
 
@@ -344,23 +425,26 @@ tr:last-child td{border-bottom:none}
     if (isNaN(desde) || isNaN(hasta) || desde > hasta) { toast('Lote inválido'); return; }
     if (hasta > 1999) { toast('El lote no puede superar 1999'); return; }
 
-    // Verificar superposición con lotes existentes
+    // Verificar DNI duplicado y superposición de lotes
     db.ref('vendedores').once('value').then(snap => {
-      let conflicto = null;
+      let dniDup = null, conflicto = null;
       if (snap.exists()) {
         snap.forEach(child => {
           const d = child.val();
-          if (d.loteDesde === undefined || d.loteHasta === undefined) return;
-          // Hay superposición si los rangos se solapan
-          if (desde <= d.loteHasta && hasta >= d.loteDesde) {
-            conflicto = `${d.nombre} (${d.loteDesde}→${d.loteHasta})`;
+          // Check DNI + nombre duplicado
+          if (String(d.dni) === dni && d.nombre.toUpperCase() === nombre) {
+            dniDup = d.nombre;
+          }
+          // Check superposición de lote
+          if (d.loteDesde !== undefined && d.loteHasta !== undefined) {
+            if (desde <= d.loteHasta && hasta >= d.loteDesde) {
+              conflicto = `${d.nombre} (${d.loteDesde}→${d.loteHasta})`;
+            }
           }
         });
       }
-      if (conflicto) {
-        toast(`Lote superpuesto con ${conflicto}`);
-        return;
-      }
+      if (dniDup) { toast(`Ya existe un vendedor con ese DNI y nombre`); return; }
+      if (conflicto) { toast(`Lote superpuesto con ${conflicto}`); return; }
       // Clave: "s" + dni + pin para unicidad
       const key = 's' + dni + pin;
       db.ref('vendedores/' + key).set({
