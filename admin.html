@@ -46,6 +46,8 @@ th{background:#f8f9fa;padding:10px 12px;text-align:left;font-size:12px;font-weig
 td{padding:10px 12px;border-bottom:1px solid #f0f0f0;color:#333}
 tr:last-child td{border-bottom:none}
 .nums-cell{font-weight:700;color:#1a73e8}
+.sortable{cursor:pointer;user-select:none}
+.sortable:hover{background:#eef2ff;color:#1a73e8}
 
 .seller-card{background:#f8f9fa;border-radius:12px;padding:16px;margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .seller-info{flex:1;min-width:160px}
@@ -122,14 +124,27 @@ tr:last-child td{border-bottom:none}
   <div id="panel-ventas" class="panel active">
     <div class="stats-row" id="statsRow"></div>
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
         <h3>Ventas registradas</h3>
         <button class="btn-export" onclick="exportCSV()">⬇️ Exportar CSV</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <label style="font-size:13px;font-weight:700;color:#555">Filtrar vendedor:</label>
+        <select id="filterVendedor" onchange="renderSales()" style="padding:8px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;outline:none">
+          <option value="">Todos</option>
+        </select>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>#</th><th>Número</th><th>Comprador</th><th>Teléfono</th><th>Vendedor</th><th>Fecha</th></tr>
+            <tr>
+              <th>#</th>
+              <th class="sortable" onclick="sortBy('numero')">Número <span id="sort-numero"></span></th>
+              <th class="sortable" onclick="sortBy('nombre')">Comprador <span id="sort-nombre"></span></th>
+              <th>Teléfono</th>
+              <th class="sortable" onclick="sortBy('vendedor')">Vendedor <span id="sort-vendedor"></span></th>
+              <th class="sortable" onclick="sortBy('fecha')">Fecha <span id="sort-fecha"></span></th>
+            </tr>
           </thead>
           <tbody id="salesBody"><tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px">Cargando...</td></tr></tbody>
         </table>
@@ -155,7 +170,7 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <div id="toast"></div>
-<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">admin v2.2 — 26/05/26</div>
+<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">admin v2.3 — 26/05/26</div>
 
 <!-- MODAL AGREGAR LOTE -->
 <div id="modalLote" class="modal-overlay" style="display:none">
@@ -188,6 +203,8 @@ tr:last-child td{border-bottom:none}
 
   let salesData = [];
   let modalKey = null;
+  let sortCol = 'fecha';
+  let sortAsc = false;
 
   document.getElementById('adminPin').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
@@ -254,32 +271,65 @@ tr:last-child td{border-bottom:none}
     `;
     document.getElementById('statsTopbar').textContent = `${totalNums} / 2000 vendidos`;
 
+    // Actualizar filtro de vendedores
+    const sel = document.getElementById('filterVendedor');
+    const currentFilter = sel.value;
+    const vendedores = [...new Set(salesData.map(s => s.vendedor).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">Todos</option>' +
+      vendedores.map(v => `<option value="${esc(v)}" ${v === currentFilter ? 'selected' : ''}>${esc(v)}</option>`).join('');
+
     if (!salesData.length) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px">Sin ventas</td></tr>';
       return;
     }
-    let row = 0;
-    const rows = [];
+
+    // Expandir por número (una fila por número)
+    let flatRows = [];
     salesData.forEach(s => {
       try {
         const nums = s.numeros && s.numeros.length ? s.numeros : ['?'];
         nums.forEach(n => {
-          row++;
-          rows.push(`<tr>
-            <td>${row}</td>
-            <td class="nums-cell">${n !== '?' ? padNum(n) : '?'}</td>
-            <td>${esc(s.nombre)}</td>
-            <td>${esc(s.telefono||'—')}</td>
-            <td>${esc(s.vendedor)}</td>
-            <td>${esc(s.fecha)}</td>
-          </tr>`);
+          flatRows.push({ numero: n !== '?' ? padNum(n) : '?', nombre: s.nombre, telefono: s.telefono||'—', vendedor: s.vendedor||'', fecha: s.fecha||'' });
         });
-      } catch(e) {
-        row++;
-        rows.push(`<tr><td>${row}</td><td colspan="5" style="color:#c62828;font-size:12px">Error en registro ${esc(s.codigo)}: ${e.message}</td></tr>`);
-      }
+      } catch(e) {}
     });
-    tbody.innerHTML = rows.join('');
+
+    // Filtrar por vendedor
+    const filtro = document.getElementById('filterVendedor').value;
+    if (filtro) flatRows = flatRows.filter(r => r.vendedor === filtro);
+
+    // Ordenar
+    flatRows.sort((a, b) => {
+      const va = a[sortCol === 'numero' ? 'numero' : sortCol] || '';
+      const vb = b[sortCol === 'numero' ? 'numero' : sortCol] || '';
+      return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+
+    // Indicadores de orden en encabezados
+    ['numero','nombre','vendedor','fecha'].forEach(col => {
+      const el = document.getElementById('sort-' + col);
+      if (el) el.textContent = sortCol === col ? (sortAsc ? '▲' : '▼') : '';
+    });
+
+    if (!flatRows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px">Sin resultados</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = flatRows.map((r, i) => `<tr>
+      <td>${i + 1}</td>
+      <td class="nums-cell">${esc(r.numero)}</td>
+      <td>${esc(r.nombre)}</td>
+      <td>${esc(r.telefono)}</td>
+      <td>${esc(r.vendedor)}</td>
+      <td>${esc(r.fecha)}</td>
+    </tr>`).join('');
+  }
+
+  function sortBy(col) {
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+    renderSales();
   }
 
   function exportCSV() {

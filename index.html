@@ -129,6 +129,7 @@
       <span id="loteBadge"></span>
     </div>
     <div class="header-right">
+      <button class="btn-hdr" onclick="toggleSoloLibres()" id="btnLibres">Ver libres</button>
       <button class="btn-hdr" onclick="suggestNumber()">🎲 Sugerir</button>
       <button class="btn-hdr" id="btnLastQR" onclick="reopenLastQR()" style="display:none"><img src="logo.png" style="width:16px;height:16px;vertical-align:middle;border-radius:2px;margin-right:4px" alt=""> Último recibo</button>
       <button class="btn-hdr" onclick="doLogout()">Salir</button>
@@ -191,7 +192,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.1 — 26/05/26</div>
+<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.2 — 26/05/26</div>
 
 <script>
   const firebaseConfig = {
@@ -503,6 +504,26 @@
   function generateCode() {
     return Array.from(crypto.getRandomValues(new Uint8Array(12)))
       .map(b => b.toString(16).padStart(2,'0')).join('').toUpperCase();
+  }
+
+  let soloLibres = false;
+  function toggleSoloLibres() {
+    soloLibres = !soloLibres;
+    const btn = document.getElementById('btnLibres');
+    btn.textContent = soloLibres ? 'Ver todos' : 'Ver libres';
+    btn.style.background = soloLibres ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.2)';
+    btn.style.color = soloLibres ? '#1a73e8' : '#fff';
+    session.lotes.forEach(l => {
+      for (let i = l.desde; i <= l.hasta; i++) {
+        const el = document.getElementById('n' + i);
+        if (!el) continue;
+        if (soloLibres && vendidos[i]) {
+          el.style.display = 'none';
+        } else {
+          el.style.display = '';
+        }
+      }
+    });
   }
 
   let toastTimer;
