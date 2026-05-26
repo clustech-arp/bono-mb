@@ -215,10 +215,27 @@ tr:last-child td{border-bottom:none}
   function loadData() { loadSales(); loadSellers(); }
 
   // ── VENTAS ──────────────────────────────────────────────
+  function toArray(val) {
+    if (val === null || val === undefined) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'object') return Object.values(val);
+    // valor escalar (string o número)
+    return [val];
+  }
+
+  function padNum(n) {
+    return String(n).padStart(4, '0');
+  }
+
   function loadSales() {
     db.ref('compras').on('value', snap => {
       salesData = [];
-      if (snap.exists()) snap.forEach(c => salesData.push({ codigo: c.key, ...c.val() }));
+      if (snap.exists()) {
+        snap.forEach(c => {
+          const d = c.val();
+          salesData.push({ codigo: c.key, ...d, numeros: toArray(d.numeros) });
+        });
+      }
       renderSales();
     }, err => {
       document.getElementById('salesBody').innerHTML =
@@ -228,9 +245,7 @@ tr:last-child td{border-bottom:none}
 
   function renderSales() {
     const tbody = document.getElementById('salesBody');
-    const totalNums = salesData.reduce((acc, s) => {
-      return acc + (Array.isArray(s.numeros) ? s.numeros.length : 1);
-    }, 0);
+    const totalNums = salesData.reduce((acc, s) => acc + (s.numeros ? s.numeros.length : 0), 0);
 
     document.getElementById('statsRow').innerHTML = `
       <div class="stat-box"><div class="num">${totalNums}</div><div class="lbl">Números vendidos</div></div>
@@ -246,18 +261,23 @@ tr:last-child td{border-bottom:none}
     let row = 0;
     const rows = [];
     salesData.forEach(s => {
-      const nums = Array.isArray(s.numeros) ? s.numeros : [s.numeros];
-      nums.forEach(n => {
+      try {
+        const nums = s.numeros && s.numeros.length ? s.numeros : ['?'];
+        nums.forEach(n => {
+          row++;
+          rows.push(`<tr>
+            <td>${row}</td>
+            <td class="nums-cell">${n !== '?' ? padNum(n) : '?'}</td>
+            <td>${esc(s.nombre)}</td>
+            <td>${esc(s.telefono||'—')}</td>
+            <td>${esc(s.vendedor)}</td>
+            <td>${esc(s.fecha)}</td>
+          </tr>`);
+        });
+      } catch(e) {
         row++;
-        rows.push(`<tr>
-          <td>${row}</td>
-          <td class="nums-cell">${String(n).padStart ? String(n).padStart(4,'0') : n}</td>
-          <td>${esc(s.nombre)}</td>
-          <td>${esc(s.telefono||'—')}</td>
-          <td>${esc(s.vendedor)}</td>
-          <td>${esc(s.fecha)}</td>
-        </tr>`);
-      });
+        rows.push(`<tr><td>${row}</td><td colspan="5" style="color:#c62828;font-size:12px">Error en registro ${esc(s.codigo)}: ${e.message}</td></tr>`);
+      }
     });
     tbody.innerHTML = rows.join('');
   }
@@ -266,8 +286,8 @@ tr:last-child td{border-bottom:none}
     if (!salesData.length) { toast('Sin datos'); return; }
     const rows = [['Numero','Comprador','Telefono','Vendedor','Fecha']];
     salesData.forEach(s => {
-      const nums = Array.isArray(s.numeros) ? s.numeros : [s.numeros];
-      nums.forEach(n => rows.push([String(n).padStart(4,'0'), s.nombre, s.telefono||'', s.vendedor, s.fecha]));
+      const nums = s.numeros && s.numeros.length ? s.numeros : ['?'];
+      nums.forEach(n => rows.push([String(n).padStart ? String(n).padStart(4,'0') : n, s.nombre, s.telefono||'', s.vendedor, s.fecha]));
     });
     const csv = '﻿' + rows.map(r => r.map(c => '"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
     const a = document.createElement('a');
