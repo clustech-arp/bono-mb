@@ -152,6 +152,33 @@
   </div>
 </div>
 
+<!-- MODAL LOTE AGOTADO -->
+<div class="modal-overlay" id="loteAgotadoModal">
+  <div class="modal-sheet" style="text-align:center">
+    <div style="font-size:52px;margin-bottom:10px">🏆</div>
+    <h2 style="margin-bottom:10px;font-size:20px">GENI@! GRACIAS POR PONERTE LA 10!</h2>
+    <p style="color:#666;margin-bottom:24px;font-size:15px">¿Te animás con otros numeritos más?</p>
+    <div style="display:flex;gap:12px">
+      <button onclick="closeLoteAgotado()" style="flex:1;padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;background:#f0f0f0;color:#555">No, gracias</button>
+      <button onclick="showCantidadSelector()" style="flex:1;padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;background:#1a73e8;color:#fff">¡Sí! 🔥</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CANTIDAD -->
+<div class="modal-overlay" id="cantidadModal">
+  <div class="modal-sheet" style="text-align:center">
+    <h2 style="margin-bottom:8px">¿Cuántos querés?</h2>
+    <p style="color:#888;margin-bottom:22px;font-size:14px">Elegí la cantidad de números adicionales</p>
+    <div style="display:flex;gap:12px;justify-content:center;margin-bottom:16px">
+      <button onclick="confirmarSolicitud(10)" style="padding:18px 28px;background:#1a73e8;color:#fff;border:none;border-radius:12px;font-size:24px;font-weight:900;cursor:pointer">10</button>
+      <button onclick="confirmarSolicitud(20)" style="padding:18px 28px;background:#1a73e8;color:#fff;border:none;border-radius:12px;font-size:24px;font-weight:900;cursor:pointer">20</button>
+      <button onclick="confirmarSolicitud(30)" style="padding:18px 28px;background:#1a73e8;color:#fff;border:none;border-radius:12px;font-size:24px;font-weight:900;cursor:pointer">30</button>
+    </div>
+    <button onclick="document.getElementById('cantidadModal').classList.remove('open')" style="padding:10px 24px;background:#f0f0f0;color:#555;border:none;border-radius:10px;font-weight:700;cursor:pointer">Cancelar</button>
+  </div>
+</div>
+
 <!-- MODAL VENTA -->
 <div class="modal-overlay" id="saleModal">
   <div class="modal-sheet">
@@ -192,7 +219,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.2 — 26/05/26</div>
+<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.3 — 26/05/26</div>
 
 <script>
   const firebaseConfig = {
@@ -334,6 +361,12 @@
     });
     document.getElementById('stLibres').textContent = total - vendCount;
     document.getElementById('stVendidos').textContent = vendCount;
+
+    // Detectar lote agotado
+    if (gridReady && total > 0 && vendCount >= total && !loteAgotadoMostrado) {
+      loteAgotadoMostrado = true;
+      setTimeout(() => document.getElementById('loteAgotadoModal').classList.add('open'), 800);
+    }
   }
 
   // ── Selección múltiple ──────────────────────────────────
@@ -507,6 +540,7 @@
   }
 
   let soloLibres = false;
+  let loteAgotadoMostrado = false;
   function toggleSoloLibres() {
     soloLibres = !soloLibres;
     const btn = document.getElementById('btnLibres');
@@ -524,6 +558,93 @@
         }
       }
     });
+  }
+
+  // ── Lote agotado ────────────────────────────────────────
+  function closeLoteAgotado() {
+    document.getElementById('loteAgotadoModal').classList.remove('open');
+  }
+
+  function showCantidadSelector() {
+    document.getElementById('loteAgotadoModal').classList.remove('open');
+    document.getElementById('cantidadModal').classList.add('open');
+  }
+
+  function getLotesFromData(d) {
+    if (d.lotes) return Object.values(d.lotes);
+    if (d.loteDesde !== undefined && d.loteHasta !== undefined)
+      return [{ desde: d.loteDesde, hasta: d.loteHasta }];
+    return [];
+  }
+
+  async function confirmarSolicitud(cantidad) {
+    document.getElementById('cantidadModal').classList.remove('open');
+    showToast('⏳ Asignando números...');
+    try {
+      // 1. Obtener todos los lotes asignados
+      const snapV = await db.ref('vendedores').once('value');
+      const asignados = new Set();
+      snapV.forEach(child => {
+        getLotesFromData(child.val()).forEach(l => {
+          for (let i = l.desde; i <= l.hasta; i++) asignados.add(i);
+        });
+      });
+
+      // 2. Encontrar los primeros N libres
+      const libres = [];
+      for (let i = 0; i < 2000 && libres.length < cantidad; i++) {
+        if (!asignados.has(i)) libres.push(i);
+      }
+      if (!libres.length) { showToast('⚠️ No hay números disponibles'); return; }
+
+      // 3. Agrupar en rangos consecutivos
+      const ranges = [];
+      let start = libres[0], prev = libres[0];
+      for (let j = 1; j < libres.length; j++) {
+        if (libres[j] === prev + 1) { prev = libres[j]; }
+        else { ranges.push({ desde: start, hasta: prev }); start = libres[j]; prev = libres[j]; }
+      }
+      ranges.push({ desde: start, hasta: prev });
+
+      // 4. Actualizar lotes del vendedor en Firebase
+      const miData = (await db.ref('vendedores/' + session.key).once('value')).val();
+      const misLotes = getLotesFromData(miData);
+      const nuevosLotes = [...misLotes, ...ranges];
+      await db.ref('vendedores/' + session.key + '/lotes').set(nuevosLotes);
+
+      // 5. Guardar solicitud para el admin
+      const fecha = new Date().toLocaleString('es-AR', {
+        day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
+      });
+      await db.ref('solicitudes').push({
+        vendedor: session.nombre, vendedorKey: session.key,
+        cantidad: libres.length, lotes: ranges, fecha
+      });
+
+      // 6. Actualizar sesión y grilla
+      session.lotes = nuevosLotes;
+      localStorage.setItem('mbSession', JSON.stringify(session));
+      loteAgotadoMostrado = false;
+
+      document.getElementById('loteBadge').textContent =
+        session.lotes.map(l => String(l.desde).padStart(4,'0') + '–' + String(l.hasta).padStart(4,'0')).join(' | ');
+
+      // Agregar nuevas celdas a la grilla
+      let html = '';
+      ranges.forEach(l => {
+        for (let i = l.desde; i <= l.hasta; i++) {
+          const n = String(i).padStart(4,'0');
+          html += `<div class="nc libre" id="n${i}" onclick="toggleSelect(${i})">${n}</div>`;
+        }
+      });
+      document.getElementById('grid').insertAdjacentHTML('beforeend', html);
+      // Marcar los que ya estén vendidos
+      ranges.forEach(l => { for (let i = l.desde; i <= l.hasta; i++) { if (vendidos[i]) markSold(i); } });
+      updateStats();
+      showToast(`✅ ¡Se te asignaron ${libres.length} números nuevos!`);
+    } catch(e) {
+      showToast('⚠️ Error: ' + e.message);
+    }
   }
 
   let toastTimer;
