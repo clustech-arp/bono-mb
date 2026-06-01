@@ -190,7 +190,7 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <div id="toast"></div>
-<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">admin v3.0 — 26/05/26</div>
+<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">admin v2.11 — 26/05/26</div>
 
 <!-- MODAL SOLICITUDES -->
 <div id="modalSolicitudes" class="modal-overlay" style="display:none;align-items:flex-start;padding-top:40px">
@@ -262,7 +262,11 @@ tr:last-child td{border-bottom:none}
     if (name === 'numeros') renderNumeros();
   }
 
-  function loadData() { loadSales(); loadSellers(); }
+  function loadData() {
+    loadSales();
+    loadSellers();
+    if (document.getElementById('panel-numeros').classList.contains('active')) renderNumeros();
+  }
 
   // ── PANEL NÚMEROS ────────────────────────────────────────
   function renderNumeros() {
