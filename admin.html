@@ -190,7 +190,7 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <div id="toast"></div>
-<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">admin v2.9 — 26/05/26</div>
+<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">admin v3.0 — 26/05/26</div>
 
 <!-- MODAL SOLICITUDES -->
 <div id="modalSolicitudes" class="modal-overlay" style="display:none;align-items:flex-start;padding-top:40px">
@@ -273,23 +273,26 @@ tr:last-child td{border-bottom:none}
       db.ref('vendedores').once('value'),
       db.ref('vendidos').once('value')
     ]).then(([snapV, snapS]) => {
-      // Mapa de número → vendedor asignado
-      const asignado = {}; // num → nombre vendedor
+      // Mapa de número (string padded) → vendedor asignado
+      const asignado = {};
       if (snapV.exists()) {
         snapV.forEach(child => {
           const d = child.val();
           getLotes(d).forEach(l => {
             for (let i = l.desde; i <= l.hasta; i++) {
-              asignado[i] = d.nombre;
+              asignado[String(i).padStart(4,'0')] = d.nombre;
             }
           });
         });
       }
 
-      // Set de números vendidos
+      // Set de números vendidos (como strings padded "0001", "0094"...)
       const vendido = new Set();
       if (snapS.exists()) {
-        snapS.forEach(child => vendido.add(parseInt(child.key, 10)));
+        snapS.forEach(child => {
+          // Normalizar la clave a 4 dígitos por si acaso
+          vendido.add(String(parseInt(child.key, 10)).padStart(4,'0'));
+        });
       }
 
       let libres = 0, asignados = 0, vendidos = 0;
@@ -297,10 +300,10 @@ tr:last-child td{border-bottom:none}
       for (let i = 0; i < 2000; i++) {
         const n = String(i).padStart(4, '0');
         let bg, color, title;
-        if (vendido.has(i)) {
+        if (vendido.has(n)) {
           bg = '#f57c00'; color = '#fff'; title = 'Vendido'; vendidos++;
-        } else if (asignado[i]) {
-          bg = '#1a73e8'; color = '#fff'; title = asignado[i]; asignados++;
+        } else if (asignado[n]) {
+          bg = '#1a73e8'; color = '#fff'; title = asignado[n]; asignados++;
         } else {
           bg = '#e0e0e0'; color = '#555'; title = 'Libre'; libres++;
         }
