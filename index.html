@@ -220,7 +220,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.5 — 27/07/26</div>
+<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.6 — 27/07/26</div>
 
 <script>
   const firebaseConfig = {
@@ -483,7 +483,7 @@
 
     const base = window.location.href.replace(/\/[^/]*(\?.*)?$/, '/');
     const verifyUrl = base + 'verify.html?code=' + codigo;
-    lastSale = { numeros: vendidosOk, nombre, vendedor, fecha, codigo, verifyUrl };
+    lastSale = { numeros: vendidosOk, nombre, telefono, vendedor, fecha, codigo, verifyUrl };
     // Guardar último recibo para poder recuperarlo
     localStorage.setItem('mbLastSale', JSON.stringify(lastSale));
     document.getElementById('btnLastQR').style.display = 'block';
