@@ -193,6 +193,7 @@
     <div class="form-field">
       <label>Teléfono (opcional)</label>
       <input type="tel" id="buyerPhone" placeholder="Ej: 351 1234567" autocomplete="off">
+      <small style="color:#888;font-size:11px;margin-top:4px;display:block">Sin 0 ni 15 — Ej: 351 6123456</small>
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeSale()">Cancelar</button>
@@ -219,7 +220,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.3 — 26/05/26</div>
+<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.4 — 27/07/26</div>
 
 <script>
   const firebaseConfig = {
@@ -530,7 +531,14 @@
     if (!lastSale) return;
     const nums = lastSale.numeros.join(', ');
     const msg = `🎟️ *Bono Festival MB*\n\n*Número${lastSale.numeros.length > 1 ? 's' : ''}: ${nums}*\nComprador: ${lastSale.nombre}\nFecha: ${lastSale.fecha}\n\n✅ Verificá tu compra:\n${lastSale.verifyUrl}`;
-    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    // Si tiene teléfono, abrir directo al contacto
+    if (lastSale.telefono) {
+      const tel = lastSale.telefono.replace(/\D/g, ''); // solo dígitos
+      const num = tel.startsWith('54') ? tel : '54' + tel;
+      window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(msg), '_blank');
+    } else {
+      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    }
   }
 
   // ── Utils ────────────────────────────────────────────────
