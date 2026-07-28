@@ -220,7 +220,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.4 — 27/07/26</div>
+<div style="position:fixed;bottom:6px;right:10px;font-size:10px;color:#bbb;z-index:999;pointer-events:none">v2.5 — 27/07/26</div>
 
 <script>
   const firebaseConfig = {
@@ -534,7 +534,7 @@
     // Si tiene teléfono, abrir directo al contacto
     if (lastSale.telefono) {
       const tel = lastSale.telefono.replace(/\D/g, ''); // solo dígitos
-      const num = tel.startsWith('54') ? tel : '54' + tel;
+      const num = tel.startsWith('54') ? tel : '549' + tel; // Argentina: 54 + 9 + número
       window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(msg), '_blank');
     } else {
       window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
