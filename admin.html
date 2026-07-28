@@ -301,7 +301,7 @@ tr:last-child td{border-bottom:none}
 
       let libres = 0, asignados = 0, vendidos = 0;
       let html = '';
-      for (let i = 0; i < 2000; i++) {
+      for (let i = 0; i < 500; i++) {
         const n = String(i).padStart(4, '0');
         let bg, color, title;
         if (vendido.has(n)) {
@@ -354,10 +354,10 @@ tr:last-child td{border-bottom:none}
 
     document.getElementById('statsRow').innerHTML = `
       <div class="stat-box"><div class="num">${totalNums}</div><div class="lbl">Números vendidos</div></div>
-      <div class="stat-box"><div class="num">${2000 - totalNums}</div><div class="lbl">Disponibles</div></div>
+      <div class="stat-box"><div class="num">${500 - totalNums}</div><div class="lbl">Disponibles</div></div>
       <div class="stat-box"><div class="num">${salesData.length}</div><div class="lbl">Transacciones</div></div>
     `;
-    document.getElementById('statsTopbar').textContent = `${totalNums} / 2000 vendidos`;
+    document.getElementById('statsTopbar').textContent = `${totalNums} / 500 vendidos`;
 
     // Actualizar filtro de vendedores
     const sel = document.getElementById('filterVendedor');
@@ -494,8 +494,8 @@ tr:last-child td{border-bottom:none}
           });
         });
         let primerLibre = 0;
-        while (primerLibre < 2000 && asignados.has(primerLibre)) primerLibre++;
-        if (primerLibre < 2000) {
+        while (primerLibre < 500 && asignados.has(primerLibre)) primerLibre++;
+        if (primerLibre < 500) {
           document.getElementById('newDesde').value = primerLibre;
           document.getElementById('newHasta').value = Math.min(primerLibre + 29, 1999);
         }
@@ -544,7 +544,7 @@ tr:last-child td{border-bottom:none}
         });
       });
       let primerLibre = 0;
-      while (primerLibre < 2000 && asignados.has(primerLibre)) primerLibre++;
+      while (primerLibre < 500 && asignados.has(primerLibre)) primerLibre++;
       document.getElementById('modalDesde').value = primerLibre;
       document.getElementById('modalHasta').value = Math.min(primerLibre + 29, 1999);
     });
